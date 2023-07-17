@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -42,16 +43,18 @@ func (as *agentServer) EvaluateTx(ctx context.Context, txRequest *protocol.Evalu
 
 func (as *agentServer) EvaluateBlock(ctx context.Context, req *protocol.EvaluateBlockRequest) (*protocol.EvaluateBlockResponse, error) {
 	n, _ := hexutil.DecodeBig(req.Event.BlockNumber)
-	return &protocol.EvaluateBlockResponse{
+	resp := &protocol.EvaluateBlockResponse{
 		Status: protocol.ResponseStatus_SUCCESS,
-		Findings: []*protocol.Finding{
-			{
-				Protocol:    "anonymous",
-				Severity:    protocol.Finding_CRITICAL,
-				AlertId:     "MY_ALERT",
-				Name:        "New block",
-				Description: n.String(),
-			},
-		},
-	}, nil
+	}
+	// publish a finding every 10 blocks
+	if big.NewInt(0).Mod(n, big.NewInt(10)).Int64() == 0 {
+		resp.Findings = append(resp.Findings, &protocol.Finding{
+			Protocol:    "anonymous",
+			Severity:    protocol.Finding_INFO,
+			AlertId:     "HEARTBEAT",
+			Name:        "Every 10 blocks",
+			Description: n.String(),
+		})
+	}
+	return resp, nil
 }
